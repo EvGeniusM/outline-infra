@@ -8,3 +8,6 @@ done
 
 mc mb --ignore-existing local/"$AWS_S3_UPLOAD_BUCKET_NAME"
 echo "Bucket '$AWS_S3_UPLOAD_BUCKET_NAME' готов"
+
+mc anonymous set download local/"$AWS_S3_UPLOAD_BUCKET_NAME"/public
+echo "Anonymous download-доступ на '$AWS_S3_UPLOAD_BUCKET_NAME/public' выставлен"
