@@ -1,0 +1,20 @@
+name: outline-infra
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    networks:
+      default:
+        aliases:
+          - app.localhost
+          - auth.localhost
+          - files.localhost
+
+volumes:
+  caddy-data:
