@@ -55,6 +55,8 @@ docker compose up -d                # или: make up
 | `make reset` | `docker compose down -v` — полный снос вместе с данными    |
 | `make logs`  | хвост логов всех сервисов                                  |
 | `make ps`    | статус контейнеров                                          |
+| `make backup`  | дамп postgres + минирование бакета minio в `backups/<TS>.tar.gz`, ротация (хранит 7 последних) |
+| `make restore ARCHIVE=backups/<TS>.tar.gz` | восстанавливает postgres и minio из архива (перезаписывает текущие данные, спрашивает подтверждение) |
 
 ## Конфигурация
 
@@ -195,4 +197,19 @@ docker compose ps              # все healthy
 
 ### После запуска
 
-Бэкап `postgres-data` (`pg_dump`) и `minio-data` (`mc mirror`) в этом репозитории не настроен — данные живут только в docker volume на одной VM. Если стенд не одноразовый, это первое, что нужно добавить отдельно.
+```bash
+make backup                              # дамп postgres + minio в backups/<TS>.tar.gz
+make restore ARCHIVE=backups/<TS>.tar.gz # восстановление (с подтверждением)
+```
+
+`scripts/backup.sh` снимает `pg_dump --clean --if-exists` из postgres и `mc mirror` бакета minio,
+упаковывает оба в один `backups/<TS>.tar.gz` и хранит последние 7 архивов (старые удаляются
+автоматически). `scripts/restore.sh` разворачивает архив обратно поверх текущих данных —
+используется для проверки восстановления и для аварийного восстановления стенда.
+
+Бэкапы лежат локально на той же VM, в docker volume на которой крутится сам стек — это не
+защищает от потери VM целиком, только от порчи данных/неудачного апдейта. Если стенд не
+одноразовый, имеет смысл синхронизировать `backups/` на другой хост или в отдельное S3
+(`scripts/backup.sh` не делает этого сам).
+
+По умолчанию бэкап гоняется ежедневно по cron (`crontab -l`), лог — `backups/backup.log`.

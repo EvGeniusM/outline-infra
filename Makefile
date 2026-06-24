@@ -1,4 +1,4 @@
-.PHONY: init up down logs reset ps
+.PHONY: init up down logs reset ps backup restore
 
 init:
 	sh scripts/gen-secrets.sh
@@ -17,3 +17,9 @@ ps:
 
 reset:
 	docker compose down -v
+
+backup:
+	sh scripts/backup.sh
+
+restore:
+	sh scripts/restore.sh $(ARCHIVE)

@@ -119,8 +119,14 @@ local/<bucket>/public`). Без этого аватарки **молча** не 
 содержит подробный чек-лист переноса на реальную VM (домены, TLS,
 ротация всех секретов кроме `SECRET_KEY`/`UTILS_SECRET` — те генерирует
 `gen-secrets.sh`, остальные — `POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD`/
-`AWS_SECRET_ACCESS_KEY`, `OIDC_CLIENT_SECRET` — руками). Backup/DR для
-postgres-data и minio-data в репозитории не настроен.
+`AWS_SECRET_ACCESS_KEY`, `OIDC_CLIENT_SECRET` — руками).
+
+Backup/DR: `make backup`/`make restore ARCHIVE=...` (`scripts/backup.sh`/`restore.sh`) —
+дамп postgres + mc mirror minio в один `backups/<TS>.tar.gz`, ротация 7 последних,
+по умолчанию по cron ежедневно. Хранится локально на той же VM — не защищает от потери
+самой VM, только от порчи данных. Обе утилиты гоняют one-off `minio/mc` контейнер с
+`--user $(id -u):$(id -g)` — без этого файлы в bind-mount уходят от root и `rm`/ротация
+ломаются правами.
 
 ## Windows-специфика
 
