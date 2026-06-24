@@ -53,11 +53,18 @@ services:
       MINIO_API_CORS_ALLOW_ORIGIN: ${URL}
     volumes:
       - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   minio-init:
     image: minio/mc
     depends_on:
-      - minio
+      minio:
+        condition: service_healthy
     env_file: .env
     entrypoint: ["/bin/sh", "/scripts/minio-init.sh"]
     volumes:
