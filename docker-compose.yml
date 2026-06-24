@@ -62,6 +62,13 @@ services:
       - ./scripts:/scripts:ro
     restart: "no"
 
+  dex:
+    image: dexidp/dex
+    restart: unless-stopped
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+    volumes:
+      - ./dex/config.yaml:/etc/dex/config.yaml:ro
+
 volumes:
   caddy-data:
   postgres-data:

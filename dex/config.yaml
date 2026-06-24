@@ -1,0 +1,24 @@
+issuer: http://auth.localhost
+
+storage:
+  type: memory
+
+web:
+  http: 0.0.0.0:5556
+
+oauth2:
+  skipApprovalScreen: true
+
+staticClients:
+  - id: outline
+    name: Outline
+    secret: oidc_local_secret
+    redirectURIs:
+      - http://app.localhost/auth/oidc.callback
+
+enablePasswordDB: true
+staticPasswords:
+  - email: admin@example.com
+    hash: "$2a$10$93xA4Ovs744tyEyUUEsLt.BWRMYLONLtNua6kQ7NctPlURlRYuTCu"
+    username: admin
+    userID: "08a8684b-db88-4b73-90a9-3cd1661f5466"
