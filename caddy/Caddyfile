@@ -1,0 +1,16 @@
+{
+	auto_https off
+	admin off
+}
+
+http://app.localhost {
+	reverse_proxy outline:3000
+}
+
+http://auth.localhost {
+	reverse_proxy dex:5556
+}
+
+http://files.localhost {
+	reverse_proxy minio:9000
+}
