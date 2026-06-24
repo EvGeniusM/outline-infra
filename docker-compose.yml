@@ -69,6 +69,22 @@ services:
     volumes:
       - ./dex/config.yaml:/etc/dex/config.yaml:ro
 
+  outline:
+    image: outlinewiki/outline:0.82.0
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      dex:
+        condition: service_started
+      caddy:
+        condition: service_started
+
 volumes:
   caddy-data:
   postgres-data:
