@@ -4,6 +4,13 @@ services:
   caddy:
     image: caddy:2
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 128M
+        reservations:
+          memory: 64M
     ports:
       - "80:80"
     volumes:
@@ -19,6 +26,13 @@ services:
   postgres:
     image: postgres:16
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 512M
+        reservations:
+          memory: 128M
     env_file: .env
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -35,6 +49,13 @@ services:
   redis:
     image: redis:7
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
+        reservations:
+          memory: 64M
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -44,6 +65,13 @@ services:
   minio:
     image: minio/minio
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 512M
+        reservations:
+          memory: 256M
     command: server /data --console-address ":9001"
     ports:
       - "9001:9001"
@@ -62,6 +90,11 @@ services:
 
   minio-init:
     image: minio/mc
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 128M
     depends_on:
       minio:
         condition: service_healthy
@@ -74,6 +107,13 @@ services:
   dex:
     image: dexidp/dex
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          memory: 64M
     command: ["dex", "serve", "/etc/dex/config.yaml"]
     volumes:
       - ./dex/config.yaml:/etc/dex/config.yaml:ro
@@ -81,6 +121,13 @@ services:
   outline:
     image: outlinewiki/outline:0.82.0
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 768M
+        reservations:
+          memory: 512M
     env_file: .env
     depends_on:
       postgres:
