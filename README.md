@@ -96,6 +96,26 @@ docker compose restart dex
 
 Три A-записи на публичный IP VM: `app.<domain>`, `auth.<domain>`, `files.<domain>`. `files.*` обязателен — браузер ходит туда напрямую за аватарками/файлами (см. «Конфигурация хранилища»).
 
+**Если можно создать только одну A-запись (без поддоменов).** Поддомены не обязательны — Caddy получает сертификат на доменное имя независимо от того, какой порт слушает конкретный site-block. Поэтому можно развести все три сервиса на одном `<domain>` по разным портам, не трогая DNS вообще:
+
+```caddyfile
+<domain> {
+	reverse_proxy outline:3000
+}
+
+<domain>:8443 {
+	reverse_proxy dex:5556
+}
+
+<domain>:9443 {
+	reverse_proxy minio:9000
+}
+```
+
+И соответственно: `OIDC_AUTH_URI=https://<domain>:8443/auth` (+ `TOKEN_URI`/`USERINFO_URI`), `AWS_S3_UPLOAD_BUCKET_URL=https://<domain>:9443`, `issuer: https://<domain>:8443` и `redirectURIs: [https://<domain>/auth/oidc.callback]` в `dex/config.yaml`, `MINIO_API_CORS_ALLOW_ORIGIN=https://<domain>` (без порта — приложение всё ещё на 443). В `docker-compose.yml` у `caddy` нужно опубликовать и `8443:8443`, `9443:9443`; в firewall (шаг 2) — открыть те же порты. Порт 80 всё равно должен быть открыт: по нему идёт ACME HTTP-01 challenge для выпуска сертификата.
+
+Если позже появится доступ хотя бы к одной дополнительной записи — проще завести `*.<domain> -> IP` (wildcard) и вернуться к варианту с поддоменами из остальных шагов ниже.
+
 ### 1. Базовая подготовка VM
 
 ```bash
