@@ -143,6 +143,24 @@ services:
       retries: 10
       start_period: 20s
 
+  plane-db-init:
+    image: postgres:16
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    entrypoint: ["/bin/sh", "/scripts/plane-db-init.sh"]
+    volumes:
+      - ./scripts:/scripts:ro
+    restart: "no"
+
   outline:
     image: outlinewiki/outline:0.82.0
     restart: unless-stopped
