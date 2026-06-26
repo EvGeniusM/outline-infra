@@ -22,6 +22,7 @@ services:
           - app.localhost
           - auth.localhost
           - files.localhost
+          - plane.localhost
 
   postgres:
     image: postgres:16
@@ -181,6 +182,47 @@ services:
         condition: service_completed_successfully
       dex:
         condition: service_started
+      caddy:
+        condition: service_started
+
+  plane-app:
+    image: makeplane/plane-aio-community:v1.3.1
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.00'
+          memory: 3G
+        reservations:
+          memory: 1G
+    environment:
+      DOMAIN_NAME: plane.localhost
+      APP_PROTOCOL: http
+      SITE_ADDRESS: ":80"
+      WEB_URL: ${PLANE_URL}
+      CORS_ALLOWED_ORIGINS: ${PLANE_URL}
+      SECRET_KEY: ${PLANE_SECRET_KEY}
+      LIVE_SERVER_SECRET_KEY: ${LIVE_SERVER_SECRET_KEY}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${PLANE_DB}
+      REDIS_URL: redis://redis:6379/1
+      AMQP_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/${RABBITMQ_VHOST}
+      USE_MINIO: "0"
+      AWS_REGION: ${AWS_REGION}
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_S3_ENDPOINT_URL: http://files.localhost
+      AWS_S3_BUCKET_NAME: ${PLANE_S3_BUCKET_NAME}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      plane-db-init:
+        condition: service_completed_successfully
       caddy:
         condition: service_started
 

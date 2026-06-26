@@ -14,3 +14,7 @@ http://auth.localhost {
 http://files.localhost {
 	reverse_proxy minio:9000
 }
+
+http://plane.localhost {
+	reverse_proxy plane-app:80
+}
