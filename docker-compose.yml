@@ -26,13 +26,14 @@ services:
   postgres:
     image: postgres:16
     restart: unless-stopped
+    command: ["postgres", "-c", "max_connections=200"]
     deploy:
       resources:
         limits:
           cpus: '1.00'
-          memory: 512M
+          memory: 768M
         reservations:
-          memory: 128M
+          memory: 256M
     env_file: .env
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -49,13 +50,14 @@ services:
   redis:
     image: redis:7
     restart: unless-stopped
+    command: ["redis-server", "--maxmemory-policy", "noeviction"]
     deploy:
       resources:
         limits:
           cpus: '0.50'
-          memory: 256M
+          memory: 512M
         reservations:
-          memory: 64M
+          memory: 128M
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -78,7 +80,7 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      MINIO_API_CORS_ALLOW_ORIGIN: ${URL}
+      MINIO_API_CORS_ALLOW_ORIGIN: ${URL},${PLANE_URL}
     volumes:
       - minio-data:/data
     healthcheck:
