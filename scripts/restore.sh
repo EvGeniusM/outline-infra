@@ -9,6 +9,8 @@ POSTGRES_DB=$(env_var POSTGRES_DB)
 MINIO_ROOT_USER=$(env_var MINIO_ROOT_USER)
 MINIO_ROOT_PASSWORD=$(env_var MINIO_ROOT_PASSWORD)
 AWS_S3_UPLOAD_BUCKET_NAME=$(env_var AWS_S3_UPLOAD_BUCKET_NAME)
+PLANE_DB=$(env_var PLANE_DB)
+PLANE_S3_BUCKET_NAME=$(env_var PLANE_S3_BUCKET_NAME)
 
 ARCHIVE="${1:-}"
 if [ -z "$ARCHIVE" ] || [ ! -f "$ARCHIVE" ]; then
@@ -32,7 +34,10 @@ TS_DIR=$(find "$WORKDIR" -mindepth 1 -maxdepth 1 -type d | head -1)
 echo "Восстанавливаю postgres..."
 gunzip -c "$TS_DIR/postgres.sql.gz" | docker compose exec -T postgres psql -U "$POSTGRES_USER" "$POSTGRES_DB"
 
-echo "Восстанавливаю minio (бакет ${AWS_S3_UPLOAD_BUCKET_NAME})..."
+echo "Восстанавливаю postgres (БД ${PLANE_DB})..."
+gunzip -c "$TS_DIR/plane.sql.gz" | docker compose exec -T postgres psql -U "$POSTGRES_USER" "$PLANE_DB"
+
+echo "Восстанавливаю minio (бакеты ${AWS_S3_UPLOAD_BUCKET_NAME}, ${PLANE_S3_BUCKET_NAME})..."
 docker run --rm \
   --network outline-infra_default \
   --entrypoint sh \
@@ -41,7 +46,8 @@ docker run --rm \
   -v "$TS_DIR/minio:/backup" \
   minio/mc -c "
     mc alias set local http://minio:9000 '$MINIO_ROOT_USER' '$MINIO_ROOT_PASSWORD' >/dev/null &&
-    mc mirror --quiet --overwrite /backup local/$AWS_S3_UPLOAD_BUCKET_NAME
+    mc mirror --quiet --overwrite /backup/$AWS_S3_UPLOAD_BUCKET_NAME local/$AWS_S3_UPLOAD_BUCKET_NAME &&
+    mc mirror --quiet --overwrite /backup/$PLANE_S3_BUCKET_NAME local/$PLANE_S3_BUCKET_NAME
   "
 
 echo "Восстановление из ${ARCHIVE} завершено."

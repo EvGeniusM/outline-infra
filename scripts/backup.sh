@@ -10,6 +10,8 @@ POSTGRES_DB=$(env_var POSTGRES_DB)
 MINIO_ROOT_USER=$(env_var MINIO_ROOT_USER)
 MINIO_ROOT_PASSWORD=$(env_var MINIO_ROOT_PASSWORD)
 AWS_S3_UPLOAD_BUCKET_NAME=$(env_var AWS_S3_UPLOAD_BUCKET_NAME)
+PLANE_DB=$(env_var PLANE_DB)
+PLANE_S3_BUCKET_NAME=$(env_var PLANE_S3_BUCKET_NAME)
 
 TS=$(date +%Y%m%d-%H%M%S)
 WORKDIR="backups/${TS}"
@@ -21,7 +23,11 @@ echo "Дамп postgres..."
 docker compose exec -T postgres pg_dump --clean --if-exists -U "$POSTGRES_USER" "$POSTGRES_DB" \
   | gzip > "$WORKDIR/postgres.sql.gz"
 
-echo "Дамп minio (бакет ${AWS_S3_UPLOAD_BUCKET_NAME})..."
+echo "Дамп postgres (БД ${PLANE_DB})..."
+docker compose exec -T postgres pg_dump --clean --if-exists -U "$POSTGRES_USER" "$PLANE_DB" \
+  | gzip > "$WORKDIR/plane.sql.gz"
+
+echo "Дамп minio (бакеты ${AWS_S3_UPLOAD_BUCKET_NAME}, ${PLANE_S3_BUCKET_NAME})..."
 docker run --rm \
   --network outline-infra_default \
   --entrypoint sh \
@@ -30,7 +36,8 @@ docker run --rm \
   -v "$(pwd)/$WORKDIR/minio:/backup" \
   minio/mc -c "
     mc alias set local http://minio:9000 '$MINIO_ROOT_USER' '$MINIO_ROOT_PASSWORD' >/dev/null &&
-    mc mirror --quiet local/$AWS_S3_UPLOAD_BUCKET_NAME /backup
+    mc mirror --quiet local/$AWS_S3_UPLOAD_BUCKET_NAME /backup/$AWS_S3_UPLOAD_BUCKET_NAME &&
+    mc mirror --quiet local/$PLANE_S3_BUCKET_NAME /backup/$PLANE_S3_BUCKET_NAME
   "
 
 tar -C backups -czf "backups/${TS}.tar.gz" "${TS}"

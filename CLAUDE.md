@@ -58,6 +58,9 @@ docker compose restart dex
 | minio      | `minio/minio`                | S3-хранилище вложений и аватаров           |
 | minio-init | `minio/mc`                   | one-shot: создаёт бакет + public-policy + завершается |
 | dex        | `dexidp/dex`                 | OIDC-провайдер, один статический test-юзер |
+| rabbitmq   | `rabbitmq:3.13-management-alpine` | брокер Celery для Plane                |
+| plane-db-init | `postgres:16`            | one-shot: создаёт БД `plane` + завершается |
+| plane-app  | `makeplane/plane-aio-community:v1.3.1` | весь Plane (AIO, supervisor внутри) |
 
 Outline не умеет логиниться по логину/паролю и не поддерживает GitHub OAuth
 (не OIDC-совместим) — поэтому в стеке свой Dex как generic-OIDC заглушка.
@@ -112,6 +115,25 @@ local/<bucket>/public`). Без этого аватарки **молча** не 
 бакет и его `public/`-policy уже существуют до того, как Outline попытается
 писать в S3. Миграции БД Outline прогоняет сам при старте, отдельного шага
 для них в стеке нет.
+
+### Plane (совместно используемая инфраструктура)
+
+Plane (Community, AIO) переиспользует общие Postgres (БД `plane`, создаёт
+`plane-db-init`), Redis (db 1) и MinIO (бакет `plane-uploads`, создаёт
+`minio-init`). Новый инфра-сервис только один — RabbitMQ.
+
+Новые инварианты:
+- `MINIO_API_CORS_ALLOW_ORIGIN` должен включать **оба** origin — `app.localhost`
+  и `plane.localhost` (presigned-PUT из браузеров обоих приложений).
+- Общий Postgres запускается с `max_connections=200` (Plane прожорлив на коннекты);
+  смена параметра требует рестарта Postgres и кратковременно роняет Outline.
+- Redis работает с `maxmemory-policy noeviction` — eviction глобален по инстансу,
+  иначе нагрузка Plane вытесняла бы ключи Outline.
+- `plane-app` работает с `USE_MINIO=0` (внешний S3): бакет должен существовать
+  заранее, presigned-URL строятся на `http://files.localhost` (одинаково для
+  браузера и контейнера, как у Outline).
+- Единого SSO с Outline нет (OIDC в Plane платный); «одни юзеры» = одинаковые email.
+- Язык интерфейса Plane — пер-юзерный (выбирается в профиле), дефолтного «ru» нет.
 
 ## Деплой за пределы локалки
 

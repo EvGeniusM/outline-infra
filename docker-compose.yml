@@ -22,17 +22,19 @@ services:
           - app.localhost
           - auth.localhost
           - files.localhost
+          - plane.localhost
 
   postgres:
     image: postgres:16
     restart: unless-stopped
+    command: ["postgres", "-c", "max_connections=200"]
     deploy:
       resources:
         limits:
           cpus: '1.00'
-          memory: 512M
+          memory: 768M
         reservations:
-          memory: 128M
+          memory: 256M
     env_file: .env
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -49,13 +51,14 @@ services:
   redis:
     image: redis:7
     restart: unless-stopped
+    command: ["redis-server", "--maxmemory-policy", "noeviction"]
     deploy:
       resources:
         limits:
           cpus: '0.50'
-          memory: 256M
+          memory: 512M
         reservations:
-          memory: 64M
+          memory: 128M
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -78,7 +81,7 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      MINIO_API_CORS_ALLOW_ORIGIN: ${URL}
+      MINIO_API_CORS_ALLOW_ORIGIN: ${URL},${PLANE_URL}
     volumes:
       - minio-data:/data
     healthcheck:
@@ -118,6 +121,47 @@ services:
     volumes:
       - ./dex/config.yaml:/etc/dex/config.yaml:ro
 
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          memory: 128M
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  plane-db-init:
+    image: postgres:16
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    entrypoint: ["/bin/sh", "/scripts/plane-db-init.sh"]
+    volumes:
+      - ./scripts:/scripts:ro
+    restart: "no"
+
   outline:
     image: outlinewiki/outline:0.82.0
     restart: unless-stopped
@@ -141,7 +185,49 @@ services:
       caddy:
         condition: service_started
 
+  plane-app:
+    image: makeplane/plane-aio-community:v1.3.1
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.00'
+          memory: 3G
+        reservations:
+          memory: 1G
+    environment:
+      DOMAIN_NAME: plane.localhost
+      APP_PROTOCOL: http
+      SITE_ADDRESS: ":80"
+      WEB_URL: ${PLANE_URL}
+      CORS_ALLOWED_ORIGINS: ${PLANE_URL}
+      SECRET_KEY: ${PLANE_SECRET_KEY}
+      LIVE_SERVER_SECRET_KEY: ${LIVE_SERVER_SECRET_KEY}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${PLANE_DB}
+      REDIS_URL: redis://redis:6379/1
+      AMQP_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/${RABBITMQ_VHOST}
+      USE_MINIO: "0"
+      AWS_REGION: ${AWS_REGION}
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_S3_ENDPOINT_URL: http://files.localhost
+      AWS_S3_BUCKET_NAME: ${PLANE_S3_BUCKET_NAME}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      plane-db-init:
+        condition: service_completed_successfully
+      caddy:
+        condition: service_started
+
 volumes:
   caddy-data:
   postgres-data:
   minio-data:
+  rabbitmq-data:
